@@ -15,6 +15,7 @@ import (
 	"github.com/1psychoQAQ/verdict-agent/internal/artifact"
 	"github.com/1psychoQAQ/verdict-agent/internal/config"
 	"github.com/1psychoQAQ/verdict-agent/internal/pipeline"
+	"github.com/1psychoQAQ/verdict-agent/internal/search"
 	"github.com/1psychoQAQ/verdict-agent/internal/storage"
 	"github.com/1psychoQAQ/verdict-agent/web"
 )
@@ -66,24 +67,50 @@ func main() {
 	// Initialize agents
 	verdictAgent := agent.NewVerdictAgent(llmClient)
 	executionAgent := agent.NewExecutionAgent(llmClient)
+	clarificationAgent := agent.NewClarificationAgent(llmClient)
 
-	// Initialize pipeline
-	p := pipeline.NewPipeline(verdictAgent, executionAgent, 10*time.Minute)
+	// Initialize search client (optional)
+	var searchClient search.Client
+	if cfg.SearchEnabled && cfg.SearchProvider != "" {
+		var searchAPIKey string
+		switch cfg.SearchProvider {
+		case "tavily":
+			searchAPIKey = cfg.TavilyAPIKey
+		case "google":
+			searchAPIKey = cfg.GoogleSearchKey
+		}
+
+		searchClient, err = search.NewClient(search.Config{
+			Provider: cfg.SearchProvider,
+			APIKey:   searchAPIKey,
+		})
+		if err != nil {
+			log.Printf("Warning: Failed to initialize search client: %v (continuing without search)", err)
+			searchClient = nil
+		} else {
+			log.Printf("Search enabled with provider: %s", cfg.SearchProvider)
+		}
+	}
+
+	// Initialize pipeline with search
+	p := pipeline.NewPipelineWithSearch(verdictAgent, executionAgent, searchClient, 10*time.Minute)
 
 	// Initialize artifact generator
 	generator := artifact.NewGenerator()
 
 	// Create router with configuration
 	routerCfg := api.RouterConfig{
-		Pipeline:     p,
-		Generator:    generator,
-		Repository:   repo,
-		RateLimit:    10,
-		Timeout:      10 * time.Minute,
-		CORSConfig:   api.DefaultCORSConfig(),
-		StaticFS:     web.StaticFS(),
-		IndexHandler: web.IndexHandler(),
+		Pipeline:           p,
+		Generator:          generator,
+		Repository:         repo,
+		ClarificationAgent: clarificationAgent,
+		RateLimit:          10,
+		Timeout:            10 * time.Minute,
+		CORSConfig:         api.DefaultCORSConfig(),
+		StaticFS:           web.StaticFS(),
+		IndexHandler:       web.IndexHandler(),
 	}
+	log.Println("Clarification mode enabled")
 	router := api.NewRouter(routerCfg)
 
 	// Create HTTP server

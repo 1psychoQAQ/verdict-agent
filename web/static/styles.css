@@ -149,6 +149,93 @@ textarea::placeholder {
     font-size: 1rem;
 }
 
+/* Progress Steps */
+.progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    text-align: left;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background-color: var(--bg-color);
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.progress-step.active {
+    opacity: 1;
+    background-color: var(--card-bg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-step.completed {
+    opacity: 1;
+}
+
+.step-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.progress-step.active .step-icon {
+    border-color: var(--primary-color);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.progress-step.completed .step-icon {
+    border-color: var(--success-color);
+    background-color: var(--success-color);
+}
+
+.progress-step.completed .step-icon::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(37, 99, 235, 0);
+    }
+}
+
+.step-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.progress-step.active .step-text {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.progress-step.completed .step-text {
+    color: var(--success-color);
+}
+
 /* Error Display */
 .error {
     margin-bottom: 2rem;
@@ -168,6 +255,132 @@ textarea::placeholder {
 
 .error-card p {
     color: #991b1b;
+}
+
+/* Clarification Section */
+.clarification {
+    margin-bottom: 2rem;
+}
+
+.clarification-card {
+    background-color: var(--card-bg);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary-color);
+}
+
+.clarification-card h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.clarification-reason {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    background-color: var(--bg-color);
+    border-radius: 0.5rem;
+}
+
+.question-item {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.question-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.question-label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+
+.question-label .required {
+    color: var(--error-color);
+    margin-left: 0.25rem;
+}
+
+.question-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+}
+
+.question-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.question-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.option-item:hover {
+    border-color: var(--primary-color);
+    background-color: var(--bg-color);
+}
+
+.option-item input {
+    margin-right: 0.75rem;
+}
+
+.option-item label {
+    cursor: pointer;
+    flex: 1;
+}
+
+.clarification-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.skip-btn {
+    flex: 1;
+    padding: 0.875rem;
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.skip-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.clarification-actions .submit-btn {
+    flex: 2;
+    margin-top: 0;
 }
 
 /* Results Panel */

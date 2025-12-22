@@ -40,6 +40,24 @@
         <section id="loading" class="loading hidden">
             <div class="spinner"></div>
             <p id="loading-text">Processing your request...</p>
+            <div class="progress-steps">
+                <div class="progress-step" id="step-clarify">
+                    <span class="step-icon"></span>
+                    <span class="step-text" id="step-clarify-text">Analyzing context</span>
+                </div>
+                <div class="progress-step" id="step-search">
+                    <span class="step-icon"></span>
+                    <span class="step-text" id="step-search-text">Searching for information</span>
+                </div>
+                <div class="progress-step" id="step-verdict">
+                    <span class="step-icon"></span>
+                    <span class="step-text" id="step-verdict-text">Making decision</span>
+                </div>
+                <div class="progress-step" id="step-plan">
+                    <span class="step-icon"></span>
+                    <span class="step-text" id="step-plan-text">Generating execution plan</span>
+                </div>
+            </div>
         </section>
 
         <!-- Error Display -->
@@ -47,6 +65,27 @@
             <div class="error-card">
                 <h3 id="error-title">Error</h3>
                 <p id="error-message"></p>
+            </div>
+        </section>
+
+        <!-- Clarification Section -->
+        <section id="clarification" class="clarification hidden">
+            <div class="clarification-card">
+                <h2 id="clarification-title">Need More Information</h2>
+                <p id="clarification-reason" class="clarification-reason"></p>
+
+                <form id="clarification-form" onsubmit="handleClarificationSubmit(event)">
+                    <div id="questions-container"></div>
+
+                    <div class="clarification-actions">
+                        <button type="button" class="skip-btn" onclick="skipClarification()">
+                            <span id="skip-text">Skip & Decide</span>
+                        </button>
+                        <button type="submit" class="submit-btn">
+                            <span id="answer-text">Submit Answers</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </section>
 

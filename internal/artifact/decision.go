@@ -22,7 +22,7 @@ type DecisionVerdict struct {
 	Ruling    string           `json:"ruling"`
 	Rationale string           `json:"rationale"`
 	Rejected  []RejectedOption `json:"rejected"`
-	Ranking   []int            `json:"ranking,omitempty"`
+	Ranking   interface{}      `json:"ranking,omitempty"` // Can be []int or omitted
 }
 
 // RejectedOption represents a rejected option in the decision

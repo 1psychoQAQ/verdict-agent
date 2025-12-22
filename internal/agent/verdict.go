@@ -29,13 +29,18 @@ func NewVerdictAgent(client LLMClient) *VerdictAgent {
 
 // Process takes user input and returns a decisive verdict with explicit rejections
 func (a *VerdictAgent) Process(ctx context.Context, input string) (*VerdictOutput, error) {
+	return a.ProcessWithContext(ctx, input, "")
+}
+
+// ProcessWithContext takes user input and optional search context for real-time information
+func (a *VerdictAgent) ProcessWithContext(ctx context.Context, input string, searchContext string) (*VerdictOutput, error) {
 	// Validate input
 	if err := validateInput(input); err != nil {
 		return nil, err
 	}
 
 	// Detect language and build prompt
-	prompt := buildVerdictPrompt(input)
+	prompt := buildVerdictPromptWithContext(input, searchContext)
 
 	// Call LLM
 	var result VerdictOutput
@@ -90,8 +95,13 @@ func detectLanguage(input string) string {
 	return "en"
 }
 
-// buildVerdictPrompt constructs the system prompt based on input language
+// buildVerdictPrompt constructs the system prompt based on input language (without search context)
 func buildVerdictPrompt(input string) string {
+	return buildVerdictPromptWithContext(input, "")
+}
+
+// buildVerdictPromptWithContext constructs the system prompt with optional search context
+func buildVerdictPromptWithContext(input string, searchContext string) string {
 	lang := detectLanguage(input)
 
 	var systemPrompt string
@@ -103,6 +113,7 @@ func buildVerdictPrompt(input string) string {
 2. 明确拒绝其他选项并说明理由
 3. 绝不使用"你也可以"、"这取决于"、"另一个选择"等表述
 4. 输出必须是有效的 JSON 格式
+5. 如果提供了网络搜索结果，优先使用最新信息做出判断
 
 输出格式（严格遵守）：
 {
@@ -111,15 +122,13 @@ func buildVerdictPrompt(input string) string {
   "rejected": [
     {"option": "被拒绝的选项1", "reason": "拒绝的具体原因"},
     {"option": "被拒绝的选项2", "reason": "拒绝的具体原因"}
-  ],
-  "ranking": [1, 2, 3]
+  ]
 }
 
 要求：
 - ruling: 清晰、果断、可执行的单一决定
 - rationale: 简洁有力的理由（2-3句话）
 - rejected: 至少列出2个被拒绝的替代方案（如果适用）
-- ranking: 可选，如果输入包含多个选项，按优先级排序
 
 严禁：
 - 使用模糊语言
@@ -127,9 +136,11 @@ func buildVerdictPrompt(input string) string {
 - 建议"根据情况而定"
 - 在裁决中使用"可能"、"也许"等词
 
-现在，基于以下输入做出裁决：
-
-` + input
+`
+		if searchContext != "" {
+			systemPrompt += "以下是与问题相关的最新网络搜索结果，请基于这些信息做出判断：\n\n" + searchContext + "\n\n"
+		}
+		systemPrompt += "现在，基于以下输入做出裁决：\n\n" + input
 	} else {
 		systemPrompt = `You are a judge, not a consultant. Your role is to deliver a SINGLE, DEFINITIVE ruling—not to offer options or suggestions.
 
@@ -138,6 +149,7 @@ Core Principles:
 2. Explicitly reject other options with reasons
 3. Never use phrases like "you could also", "it depends", "another option would be"
 4. Output ONLY valid JSON matching the schema
+5. If web search results are provided, prioritize using the latest information
 
 Output Format (strict adherence required):
 {
@@ -146,15 +158,13 @@ Output Format (strict adherence required):
   "rejected": [
     {"option": "Rejected option 1", "reason": "Specific reason for rejection"},
     {"option": "Rejected option 2", "reason": "Specific reason for rejection"}
-  ],
-  "ranking": [1, 2, 3]
+  ]
 }
 
 Requirements:
 - ruling: Clear, decisive, actionable single decision
 - rationale: Concise, powerful reasoning (2-3 sentences)
 - rejected: List at least 2 rejected alternatives (if applicable)
-- ranking: Optional, if input contains multiple options, rank them by priority
 
 Prohibited:
 - Hedging language
@@ -162,9 +172,11 @@ Prohibited:
 - Suggesting "it depends on the situation"
 - Using "maybe", "possibly", "could" in the ruling
 
-Now, deliver your verdict based on the following input:
-
-` + input
+`
+		if searchContext != "" {
+			systemPrompt += "The following are recent web search results relevant to the query. Use this information to make your judgment:\n\n" + searchContext + "\n\n"
+		}
+		systemPrompt += "Now, deliver your verdict based on the following input:\n\n" + input
 	}
 
 	return systemPrompt

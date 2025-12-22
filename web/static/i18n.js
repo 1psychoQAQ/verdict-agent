@@ -13,7 +13,15 @@ const i18n = {
         todoTitle: "Execution Plan",
         decisionIdLabel: "Decision ID:",
         langToggle: "中文",
-        charCount: "/10000"
+        charCount: "/10000",
+        clarificationTitle: "Need More Information",
+        clarificationSkip: "Skip & Decide",
+        clarificationSubmit: "Submit Answers",
+        answerPlaceholder: "Enter your answer...",
+        stepClarify: "Analyzing context",
+        stepSearch: "Searching for information",
+        stepVerdict: "Making decision",
+        stepPlan: "Generating execution plan"
     },
     zh: {
         title: "裁决代理",
@@ -28,7 +36,15 @@ const i18n = {
         todoTitle: "执行计划",
         decisionIdLabel: "决策ID:",
         langToggle: "English",
-        charCount: "/10000"
+        charCount: "/10000",
+        clarificationTitle: "需要更多信息",
+        clarificationSkip: "跳过并决策",
+        clarificationSubmit: "提交回答",
+        answerPlaceholder: "请输入您的回答...",
+        stepClarify: "分析上下文",
+        stepSearch: "搜索相关信息",
+        stepVerdict: "做出决策",
+        stepPlan: "生成执行计划"
     }
 };
 
@@ -57,11 +73,40 @@ function updateUILanguage() {
     document.getElementById('decision-id-label').textContent = t.decisionIdLabel;
     document.getElementById('lang-text').textContent = t.langToggle;
 
+    // Update clarification labels
+    updateClarificationLabels();
+
     // Update document language
     document.documentElement.lang = currentLang;
 
     // Update page title
     document.title = t.title;
+}
+
+function updateClarificationLabels() {
+    const t = i18n[currentLang];
+    const clarificationTitle = document.getElementById('clarification-title');
+    const skipText = document.getElementById('skip-text');
+    const answerText = document.getElementById('answer-text');
+
+    if (clarificationTitle) clarificationTitle.textContent = t.clarificationTitle;
+    if (skipText) skipText.textContent = t.clarificationSkip;
+    if (answerText) answerText.textContent = t.clarificationSubmit;
+
+    // Update progress step labels
+    const stepClarify = document.getElementById('step-clarify-text');
+    const stepSearch = document.getElementById('step-search-text');
+    const stepVerdict = document.getElementById('step-verdict-text');
+    const stepPlan = document.getElementById('step-plan-text');
+
+    if (stepClarify) stepClarify.textContent = t.stepClarify;
+    if (stepSearch) stepSearch.textContent = t.stepSearch;
+    if (stepVerdict) stepVerdict.textContent = t.stepVerdict;
+    if (stepPlan) stepPlan.textContent = t.stepPlan;
+}
+
+function getCurrentLang() {
+    return currentLang;
 }
 
 function initLanguage() {

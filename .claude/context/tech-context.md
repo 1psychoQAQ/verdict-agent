@@ -1,7 +1,7 @@
 ---
 created: 2025-12-22T03:16:21Z
-last_updated: 2025-12-22T03:16:21Z
-version: 1.0
+last_updated: 2025-12-22T09:42:24Z
+version: 2.0
 author: Claude Code PM System
 ---
 
@@ -11,17 +11,35 @@ author: Claude Code PM System
 
 ### Core Language
 - **Go (Golang)** - Primary backend language
-- Version: TBD (recommend Go 1.21+)
+- Version: Go 1.21+
 
-### Planned Dependencies
+### Current Dependencies
 
 | Category | Technology | Purpose |
 |----------|------------|---------|
-| HTTP Framework | `net/http` or `chi`/`gin` | REST API endpoints |
+| HTTP Framework | `chi` | REST API routing with middleware |
 | JSON | `encoding/json` | Protocol serialization |
-| LLM Integration | OpenAI/Anthropic SDK | Agent AI backend |
-| Configuration | `viper` or `envconfig` | Config management |
-| Logging | `slog` (stdlib) | Structured logging |
+| LLM Integration | Custom clients | OpenAI, Anthropic, Gemini support |
+| Configuration | `godotenv` | Environment variable loading |
+| Database | `pgx` | PostgreSQL driver |
+| UUID | `google/uuid` | Decision ID generation |
+| File Embedding | `embed` | Static file serving |
+
+### LLM Providers
+
+| Provider | Model | Package |
+|----------|-------|---------|
+| OpenAI | gpt-4o | Custom HTTP client |
+| Anthropic | claude-sonnet-4-20250514 | Custom HTTP client |
+| Google | gemini-2.5-flash | Custom HTTP client |
+
+### Web Search Providers
+
+| Provider | API | Status |
+|----------|-----|--------|
+| Tavily | REST API | Supported |
+| Google | Custom Search | Supported |
+| DuckDuckGo | Instant Answer | Supported (limited) |
 
 ### Development Tools
 
@@ -31,15 +49,13 @@ author: Claude Code PM System
 | `golangci-lint` | Code linting |
 | `make` | Build automation |
 | `gh` CLI | GitHub operations |
+| Docker | Containerization |
 
 ## Build Commands
 
 ```bash
-# Initialize module
-go mod init github.com/1psychoQAQ/verdict-agent
-
 # Build
-go build ./...
+go build -o verdict-server ./cmd/server
 
 # Test
 go test ./...
@@ -48,39 +64,59 @@ go test ./...
 golangci-lint run
 
 # Run server
+./verdict-server
+# or
 go run cmd/server/main.go
 ```
 
 ## Environment Configuration
 
 ```bash
-# Required
-OPENAI_API_KEY=     # or ANTHROPIC_API_KEY for Claude
-PORT=8080           # HTTP server port
+# Required - LLM Provider (choose one)
+OPENAI_API_KEY=         # For OpenAI
+ANTHROPIC_API_KEY=      # For Anthropic
+GEMINI_API_KEY=         # For Google Gemini
+LLM_PROVIDER=gemini     # openai, anthropic, or gemini
 
-# Optional
-LOG_LEVEL=info
-CONFIG_PATH=./configs/config.yaml
+# Required - Database
+DATABASE_URL=postgres://...
+
+# Optional - Server
+PORT=9999               # HTTP server port (default: 8080)
+
+# Optional - Web Search
+SEARCH_ENABLED=true
+SEARCH_PROVIDER=duckduckgo  # tavily, google, or duckduckgo
+TAVILY_API_KEY=         # For Tavily search
+GOOGLE_SEARCH_KEY=      # For Google Custom Search
 ```
 
 ## External Integrations
 
 ### AI Provider
-- Primary: OpenAI API or Anthropic API for agent reasoning
-- Agents communicate via structured JSON, not raw LLM responses
+- Multi-provider support: OpenAI, Anthropic, Gemini
+- Agents communicate via structured JSON
+- Search context injected into prompts
+
+### Web Search
+- Optional real-time information retrieval
+- Helps reduce model hallucination for current events
+- DuckDuckGo works without API key
 
 ### Output Formats
 - `decision.json` - Immutable decision artifact
-- `todo.md` - Markdown task list
+- `todo.md` - Markdown task list with checkboxes
 
 ## Development Environment
 
-- **IDE:** GoLand (JetBrains) - indicated by `.idea/` directory
-- **OS:** macOS (Darwin) - indicated by project paths
+- **IDE:** GoLand (JetBrains)
+- **OS:** macOS (Darwin)
 - **Version Control:** Git with GitHub origin
+- **Database:** PostgreSQL
 
 ## Notes
 
-- No existing Go dependencies yet (no `go.mod`)
-- Project uses CCPM for project management
-- Bilingual support required (Chinese/English)
+- Server embeds static files at compile time
+- Rebuild required after static file changes
+- godotenv auto-loads `.env` file
+- Bilingual support (Chinese/English) in frontend

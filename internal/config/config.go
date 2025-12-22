@@ -16,6 +16,11 @@ type Config struct {
 	GeminiAPIKey     string
 	LLMProvider      string
 	Port             int
+	// Search configuration
+	SearchProvider   string
+	TavilyAPIKey     string
+	GoogleSearchKey  string
+	SearchEnabled    bool
 }
 
 // Load reads configuration from environment variables
@@ -30,6 +35,11 @@ func Load() (*Config, error) {
 		GeminiAPIKey:     getEnv("GEMINI_API_KEY", ""),
 		LLMProvider:      getEnv("LLM_PROVIDER", "openai"),
 		Port:             getEnvAsInt("PORT", 8080),
+		// Search configuration
+		SearchProvider:   getEnv("SEARCH_PROVIDER", ""),
+		TavilyAPIKey:     getEnv("TAVILY_API_KEY", ""),
+		GoogleSearchKey:  getEnv("GOOGLE_SEARCH_API_KEY", ""),
+		SearchEnabled:    getEnvAsBool("SEARCH_ENABLED", true),
 	}
 
 	// Validate required fields
@@ -69,6 +79,17 @@ func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+// getEnvAsBool retrieves an environment variable as a boolean or returns a default value
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		boolValue, err := strconv.ParseBool(value)
+		if err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue

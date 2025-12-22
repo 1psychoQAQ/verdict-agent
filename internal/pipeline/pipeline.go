@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/1psychoQAQ/verdict-agent/internal/agent"
+	"github.com/1psychoQAQ/verdict-agent/internal/search"
 )
 
 // Error types
@@ -24,6 +26,7 @@ var (
 type Pipeline struct {
 	verdictAgent   *agent.VerdictAgent
 	executionAgent *agent.ExecutionAgent
+	searchClient   search.Client
 	timeout        time.Duration
 }
 
@@ -37,6 +40,11 @@ type PipelineResult struct {
 
 // NewPipeline creates a new pipeline with the given agents and timeout
 func NewPipeline(verdictAgent *agent.VerdictAgent, executionAgent *agent.ExecutionAgent, timeout time.Duration) *Pipeline {
+	return NewPipelineWithSearch(verdictAgent, executionAgent, nil, timeout)
+}
+
+// NewPipelineWithSearch creates a new pipeline with search capability
+func NewPipelineWithSearch(verdictAgent *agent.VerdictAgent, executionAgent *agent.ExecutionAgent, searchClient search.Client, timeout time.Duration) *Pipeline {
 	if timeout <= 0 {
 		timeout = 10 * time.Minute // Default timeout
 	}
@@ -44,11 +52,12 @@ func NewPipeline(verdictAgent *agent.VerdictAgent, executionAgent *agent.Executi
 	return &Pipeline{
 		verdictAgent:   verdictAgent,
 		executionAgent: executionAgent,
+		searchClient:   searchClient,
 		timeout:        timeout,
 	}
 }
 
-// Execute runs the complete pipeline: validate input → Agent A → validate → Agent B → validate
+// Execute runs the complete pipeline: validate input → search → Agent A → validate → Agent B → validate
 func (p *Pipeline) Execute(ctx context.Context, input string) (*PipelineResult, error) {
 	startTime := time.Now()
 
@@ -65,8 +74,21 @@ func (p *Pipeline) Execute(ctx context.Context, input string) (*PipelineResult, 
 		return nil, err
 	}
 
-	// Step 2: Execute Agent A (Verdict)
-	verdict, err := p.executeVerdictAgent(timeoutCtx, input)
+	// Step 2: Perform web search (if enabled)
+	searchContext := ""
+	if p.searchClient != nil {
+		searchResults, err := p.searchClient.Search(timeoutCtx, input, 5)
+		if err != nil {
+			// Log but don't fail - search is optional
+			log.Printf("Web search failed (continuing without): %v", err)
+		} else if searchResults != nil {
+			searchContext = searchResults.FormatForPrompt()
+			log.Printf("Web search completed: %d results for '%s'", len(searchResults.Results), input)
+		}
+	}
+
+	// Step 3: Execute Agent A (Verdict) with search context
+	verdict, err := p.executeVerdictAgentWithContext(timeoutCtx, input, searchContext)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, ErrTimeout
@@ -75,12 +97,12 @@ func (p *Pipeline) Execute(ctx context.Context, input string) (*PipelineResult, 
 	}
 	result.Verdict = verdict
 
-	// Step 3: Validate Agent A output
+	// Step 4: Validate Agent A output
 	if err := p.validateVerdictOutput(verdict); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrVerdictFailed, err)
 	}
 
-	// Step 4: Execute Agent B (Execution)
+	// Step 5: Execute Agent B (Execution)
 	execution, err := p.executeExecutionAgent(timeoutCtx, verdict)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -90,7 +112,7 @@ func (p *Pipeline) Execute(ctx context.Context, input string) (*PipelineResult, 
 	}
 	result.Execution = execution
 
-	// Step 5: Validate Agent B output
+	// Step 6: Validate Agent B output
 	if err := p.validateExecutionOutput(execution); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrExecutionFailed, err)
 	}
@@ -116,6 +138,11 @@ func (p *Pipeline) validateInput(input string) error {
 // executeVerdictAgent calls Agent A with the user input
 func (p *Pipeline) executeVerdictAgent(ctx context.Context, input string) (*agent.VerdictOutput, error) {
 	return p.verdictAgent.Process(ctx, input)
+}
+
+// executeVerdictAgentWithContext calls Agent A with the user input and search context
+func (p *Pipeline) executeVerdictAgentWithContext(ctx context.Context, input string, searchContext string) (*agent.VerdictOutput, error) {
+	return p.verdictAgent.ProcessWithContext(ctx, input, searchContext)
 }
 
 // validateVerdictOutput ensures the verdict output meets quality standards

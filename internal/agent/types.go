@@ -5,7 +5,7 @@ type VerdictOutput struct {
 	Ruling    string           `json:"ruling"`
 	Rationale string           `json:"rationale"`
 	Rejected  []RejectedOption `json:"rejected"`
-	Ranking   []int            `json:"ranking,omitempty"`
+	Ranking   interface{}      `json:"ranking,omitempty"` // Can be []int or omitted
 }
 
 // RejectedOption represents an option that was rejected by the verdict

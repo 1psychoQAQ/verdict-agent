@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/1psychoQAQ/verdict-agent/internal/agent"
 	"github.com/1psychoQAQ/verdict-agent/internal/artifact"
 	"github.com/1psychoQAQ/verdict-agent/internal/pipeline"
 	"github.com/1psychoQAQ/verdict-agent/internal/storage"
@@ -15,14 +16,35 @@ import (
 
 // VerdictRequest represents the request body for POST /api/verdict
 type VerdictRequest struct {
-	Input string `json:"input"`
+	Input         string            `json:"input"`
+	Clarification *ClarificationCtx `json:"clarification,omitempty"` // Optional clarification answers
+	SkipClarify   bool              `json:"skip_clarify,omitempty"`  // Skip clarification check
+}
+
+// ClarificationCtx holds clarification answers from the user
+type ClarificationCtx struct {
+	Answers map[string]string `json:"answers"` // question_id -> answer
 }
 
 // VerdictResponse represents the response for POST /api/verdict
 type VerdictResponse struct {
-	DecisionID string          `json:"decision_id"`
-	Decision   json.RawMessage `json:"decision"`
-	Todo       string          `json:"todo"` // Markdown content
+	// Status indicates the response type: "clarification_needed" or "verdict"
+	Status     string          `json:"status"`
+	DecisionID string          `json:"decision_id,omitempty"`
+	Decision   json.RawMessage `json:"decision,omitempty"`
+	Todo       string          `json:"todo,omitempty"` // Markdown content
+	// Clarification fields (when status is "clarification_needed")
+	Questions []QuestionDTO `json:"questions,omitempty"`
+	Reason    string        `json:"reason,omitempty"`
+}
+
+// QuestionDTO represents a clarifying question for the API response
+type QuestionDTO struct {
+	ID       string   `json:"id"`
+	Question string   `json:"question"`
+	Type     string   `json:"type"` // "text", "choice", "multiple_choice"
+	Options  []string `json:"options,omitempty"`
+	Required bool     `json:"required"`
 }
 
 // DecisionResponse represents the response for GET /api/decisions/{id}
@@ -62,9 +84,10 @@ const (
 
 // Handlers holds the dependencies for HTTP handlers
 type Handlers struct {
-	pipeline   *pipeline.Pipeline
-	generator  *artifact.Generator
-	repository storage.Repository
+	pipeline            *pipeline.Pipeline
+	generator           *artifact.Generator
+	repository          storage.Repository
+	clarificationAgent  *agent.ClarificationAgent
 }
 
 // NewHandlers creates a new Handlers instance
@@ -73,6 +96,16 @@ func NewHandlers(p *pipeline.Pipeline, g *artifact.Generator, r storage.Reposito
 		pipeline:   p,
 		generator:  g,
 		repository: r,
+	}
+}
+
+// NewHandlersWithClarification creates Handlers with clarification support
+func NewHandlersWithClarification(p *pipeline.Pipeline, g *artifact.Generator, r storage.Repository, ca *agent.ClarificationAgent) *Handlers {
+	return &Handlers{
+		pipeline:           p,
+		generator:          g,
+		repository:         r,
+		clarificationAgent: ca,
 	}
 }
 
@@ -129,8 +162,41 @@ func (h *Handlers) VerdictHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if clarification is needed (if agent is available and not skipped)
+	if h.clarificationAgent != nil && !req.SkipClarify && req.Clarification == nil {
+		clarification, err := h.clarificationAgent.Analyze(r.Context(), input)
+		if err != nil {
+			// Log but continue without clarification
+			// log.Printf("Clarification analysis failed: %v", err)
+		} else if clarification != nil && clarification.NeedsClarification && len(clarification.Questions) > 0 {
+			// Return clarification questions
+			questions := make([]QuestionDTO, len(clarification.Questions))
+			for i, q := range clarification.Questions {
+				questions[i] = QuestionDTO{
+					ID:       q.ID,
+					Question: q.Question,
+					Type:     q.Type,
+					Options:  q.Options,
+					Required: q.Required,
+				}
+			}
+			writeJSON(w, http.StatusOK, VerdictResponse{
+				Status:    "clarification_needed",
+				Questions: questions,
+				Reason:    clarification.Reason,
+			})
+			return
+		}
+	}
+
+	// Build enriched input if clarification answers are provided
+	enrichedInput := input
+	if req.Clarification != nil && len(req.Clarification.Answers) > 0 {
+		enrichedInput = h.buildEnrichedInput(input, req.Clarification.Answers)
+	}
+
 	// Execute pipeline
-	result, err := h.pipeline.Execute(r.Context(), input)
+	result, err := h.pipeline.Execute(r.Context(), enrichedInput)
 	if err != nil {
 		switch {
 		case errors.Is(err, pipeline.ErrInputEmpty):
@@ -173,10 +239,26 @@ func (h *Handlers) VerdictHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	writeJSON(w, http.StatusOK, VerdictResponse{
+		Status:     "verdict",
 		DecisionID: artifacts.ID.String(),
 		Decision:   artifacts.DecisionJSON,
 		Todo:       string(artifacts.TodoMD),
 	})
+}
+
+// buildEnrichedInput combines original input with clarification answers
+func (h *Handlers) buildEnrichedInput(input string, answers map[string]string) string {
+	var sb strings.Builder
+	sb.WriteString(input)
+	sb.WriteString("\n\n--- 用户补充信息 / User Clarifications ---\n")
+	for id, answer := range answers {
+		sb.WriteString("- ")
+		sb.WriteString(id)
+		sb.WriteString(": ")
+		sb.WriteString(answer)
+		sb.WriteString("\n")
+	}
+	return sb.String()
 }
 
 // GetDecisionHandler handles GET /api/decisions/{id} requests

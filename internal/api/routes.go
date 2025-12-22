@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/1psychoQAQ/verdict-agent/internal/agent"
 	"github.com/1psychoQAQ/verdict-agent/internal/artifact"
 	"github.com/1psychoQAQ/verdict-agent/internal/pipeline"
 	"github.com/1psychoQAQ/verdict-agent/internal/storage"
@@ -13,14 +14,15 @@ import (
 
 // RouterConfig holds configuration for the API router
 type RouterConfig struct {
-	Pipeline     *pipeline.Pipeline
-	Generator    *artifact.Generator
-	Repository   storage.Repository
-	RateLimit    int             // Requests per minute per IP (default: 10)
-	Timeout      time.Duration   // Request timeout (default: 10 minutes)
-	CORSConfig   CORSConfig
-	StaticFS     http.FileSystem // Filesystem for serving static files
-	IndexHandler http.HandlerFunc // Handler for serving index.html
+	Pipeline           *pipeline.Pipeline
+	Generator          *artifact.Generator
+	Repository         storage.Repository
+	ClarificationAgent *agent.ClarificationAgent // Optional: enables clarification flow
+	RateLimit          int                       // Requests per minute per IP (default: 10)
+	Timeout            time.Duration             // Request timeout (default: 10 minutes)
+	CORSConfig         CORSConfig
+	StaticFS           http.FileSystem  // Filesystem for serving static files
+	IndexHandler       http.HandlerFunc // Handler for serving index.html
 }
 
 // DefaultRouterConfig returns a default router configuration
@@ -44,8 +46,13 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		cfg.Timeout = 10 * time.Minute
 	}
 
-	// Create handlers
-	handlers := NewHandlers(cfg.Pipeline, cfg.Generator, cfg.Repository)
+	// Create handlers (with or without clarification support)
+	var handlers *Handlers
+	if cfg.ClarificationAgent != nil {
+		handlers = NewHandlersWithClarification(cfg.Pipeline, cfg.Generator, cfg.Repository, cfg.ClarificationAgent)
+	} else {
+		handlers = NewHandlers(cfg.Pipeline, cfg.Generator, cfg.Repository)
+	}
 
 	// Create rate limiter (10 requests per minute per IP)
 	rateLimiter := NewRateLimiter(cfg.RateLimit, time.Minute)
