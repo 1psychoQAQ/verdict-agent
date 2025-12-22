@@ -16,6 +16,7 @@ import (
 	"github.com/1psychoQAQ/verdict-agent/internal/config"
 	"github.com/1psychoQAQ/verdict-agent/internal/pipeline"
 	"github.com/1psychoQAQ/verdict-agent/internal/storage"
+	"github.com/1psychoQAQ/verdict-agent/web"
 )
 
 func main() {
@@ -69,12 +70,14 @@ func main() {
 
 	// Create router with configuration
 	routerCfg := api.RouterConfig{
-		Pipeline:   p,
-		Generator:  generator,
-		Repository: repo,
-		RateLimit:  10,
-		Timeout:    10 * time.Minute,
-		CORSConfig: api.DefaultCORSConfig(),
+		Pipeline:     p,
+		Generator:    generator,
+		Repository:   repo,
+		RateLimit:    10,
+		Timeout:      10 * time.Minute,
+		CORSConfig:   api.DefaultCORSConfig(),
+		StaticFS:     web.StaticFS(),
+		IndexHandler: web.IndexHandler(),
 	}
 	router := api.NewRouter(routerCfg)
 
@@ -114,11 +117,13 @@ func main() {
 	log.Println("Server stopped")
 }
 
-// startHealthOnlyServer starts a minimal server with just the health check endpoint
+// startHealthOnlyServer starts a minimal server with just the health check endpoint and frontend
 func startHealthOnlyServer(port int) {
 	router := api.NewRouter(api.RouterConfig{
-		RateLimit: 10,
-		Timeout:   10 * time.Minute,
+		RateLimit:    10,
+		Timeout:      10 * time.Minute,
+		StaticFS:     web.StaticFS(),
+		IndexHandler: web.IndexHandler(),
 	})
 
 	addr := fmt.Sprintf(":%d", port)

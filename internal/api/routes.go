@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/1psychoQAQ/verdict-agent/internal/artifact"
@@ -12,12 +13,14 @@ import (
 
 // RouterConfig holds configuration for the API router
 type RouterConfig struct {
-	Pipeline    *pipeline.Pipeline
-	Generator   *artifact.Generator
-	Repository  storage.Repository
-	RateLimit   int           // Requests per minute per IP (default: 10)
-	Timeout     time.Duration // Request timeout (default: 10 minutes)
-	CORSConfig  CORSConfig
+	Pipeline     *pipeline.Pipeline
+	Generator    *artifact.Generator
+	Repository   storage.Repository
+	RateLimit    int             // Requests per minute per IP (default: 10)
+	Timeout      time.Duration   // Request timeout (default: 10 minutes)
+	CORSConfig   CORSConfig
+	StaticFS     http.FileSystem // Filesystem for serving static files
+	IndexHandler http.HandlerFunc // Handler for serving index.html
 }
 
 // DefaultRouterConfig returns a default router configuration
@@ -72,6 +75,14 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		// GET /api/todos/{id} - Retrieve todo by ID
 		r.Get("/todos/{id}", handlers.GetTodoHandler)
 	})
+
+	// Static files and frontend (if configured)
+	if cfg.StaticFS != nil {
+		r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(cfg.StaticFS)))
+	}
+	if cfg.IndexHandler != nil {
+		r.Get("/", cfg.IndexHandler)
+	}
 
 	return r
 }
