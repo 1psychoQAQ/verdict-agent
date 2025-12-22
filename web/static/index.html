@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verdict Agent</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 id="title">Verdict Agent</h1>
+            <button id="lang-toggle" class="lang-toggle" onclick="toggleLanguage()">
+                <span id="lang-text">中文</span>
+            </button>
+        </header>
+
+        <!-- Input Form -->
+        <section class="input-section">
+            <form id="verdict-form" onsubmit="handleSubmit(event)">
+                <textarea
+                    id="input"
+                    name="input"
+                    placeholder="Enter your idea or decision to make..."
+                    rows="6"
+                    maxlength="10000"
+                    required
+                ></textarea>
+                <div class="char-count">
+                    <span id="char-count">0</span>/10000
+                </div>
+                <button type="submit" id="submit-btn" class="submit-btn">
+                    <span id="submit-text">Get Verdict</span>
+                </button>
+            </form>
+        </section>
+
+        <!-- Loading State -->
+        <section id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p id="loading-text">Processing your request...</p>
+        </section>
+
+        <!-- Error Display -->
+        <section id="error" class="error hidden">
+            <div class="error-card">
+                <h3 id="error-title">Error</h3>
+                <p id="error-message"></p>
+            </div>
+        </section>
+
+        <!-- Results Panel -->
+        <section id="results" class="results hidden">
+            <!-- Decision Card -->
+            <div class="decision-card">
+                <h2 id="decision-title">Decision</h2>
+
+                <div class="ruling">
+                    <h3 id="ruling-label">Ruling</h3>
+                    <p id="ruling-text"></p>
+                </div>
+
+                <div class="rationale">
+                    <h3 id="rationale-label">Rationale</h3>
+                    <p id="rationale-text"></p>
+                </div>
+
+                <div class="rejected" id="rejected-section">
+                    <h3 id="rejected-label">Rejected Options</h3>
+                    <ul id="rejected-list"></ul>
+                </div>
+            </div>
+
+            <!-- Todo Card -->
+            <div class="todo-card">
+                <h2 id="todo-title">Execution Plan</h2>
+                <div id="todo-content" class="todo-content"></div>
+            </div>
+
+            <!-- Decision ID -->
+            <div class="decision-meta">
+                <span id="decision-id-label">Decision ID:</span>
+                <code id="decision-id"></code>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/i18n.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
