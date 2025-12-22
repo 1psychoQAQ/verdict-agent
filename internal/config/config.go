@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds the application configuration
@@ -11,16 +13,21 @@ type Config struct {
 	DatabaseURL      string
 	OpenAIAPIKey     string
 	AnthropicAPIKey  string
+	GeminiAPIKey     string
 	LLMProvider      string
 	Port             int
 }
 
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
+	// Load .env file if it exists (ignore error if not found)
+	_ = godotenv.Load()
+
 	cfg := &Config{
 		DatabaseURL:      getEnv("DATABASE_URL", ""),
 		OpenAIAPIKey:     getEnv("OPENAI_API_KEY", ""),
 		AnthropicAPIKey:  getEnv("ANTHROPIC_API_KEY", ""),
+		GeminiAPIKey:     getEnv("GEMINI_API_KEY", ""),
 		LLMProvider:      getEnv("LLM_PROVIDER", "openai"),
 		Port:             getEnvAsInt("PORT", 8080),
 	}
@@ -31,8 +38,8 @@ func Load() (*Config, error) {
 	}
 
 	// Validate LLM provider
-	if cfg.LLMProvider != "openai" && cfg.LLMProvider != "anthropic" {
-		return nil, fmt.Errorf("LLM_PROVIDER must be 'openai' or 'anthropic'")
+	if cfg.LLMProvider != "openai" && cfg.LLMProvider != "anthropic" && cfg.LLMProvider != "gemini" {
+		return nil, fmt.Errorf("LLM_PROVIDER must be 'openai', 'anthropic', or 'gemini'")
 	}
 
 	// Validate API key based on provider
@@ -41,6 +48,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.LLMProvider == "anthropic" && cfg.AnthropicAPIKey == "" {
 		return nil, fmt.Errorf("ANTHROPIC_API_KEY is required when LLM_PROVIDER is 'anthropic'")
+	}
+	if cfg.LLMProvider == "gemini" && cfg.GeminiAPIKey == "" {
+		return nil, fmt.Errorf("GEMINI_API_KEY is required when LLM_PROVIDER is 'gemini'")
 	}
 
 	return cfg, nil

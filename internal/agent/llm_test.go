@@ -168,7 +168,7 @@ func TestOpenAIComplete(t *testing.T) {
 				config: Config{
 					Provider:   "openai",
 					APIKey:     "test-key",
-					Model:      "gpt-4",
+					Model:      "gpt-4o",
 					MaxRetries: 3,
 					Timeout:    5 * time.Second,
 				},
@@ -471,7 +471,7 @@ func TestCompleteJSON(t *testing.T) {
 				config: Config{
 					Provider:   "openai",
 					APIKey:     "test-key",
-					Model:      "gpt-4",
+					Model:      "gpt-4o",
 					MaxRetries: 3,
 					Timeout:    5 * time.Second,
 				},
@@ -538,7 +538,7 @@ func TestContextTimeout(t *testing.T) {
 		config: Config{
 			Provider:   "openai",
 			APIKey:     "test-key",
-			Model:      "gpt-4",
+			Model:      "gpt-4o",
 			MaxRetries: 0, // No retries for this test
 			Timeout:    100 * time.Millisecond,
 		},
@@ -590,7 +590,7 @@ func TestRetryExponentialBackoff(t *testing.T) {
 		config: Config{
 			Provider:   "openai",
 			APIKey:     "test-key",
-			Model:      "gpt-4",
+			Model:      "gpt-4o",
 			MaxRetries: 3,
 			Timeout:    30 * time.Second,
 		},
@@ -664,7 +664,7 @@ func TestConfigDefaults(t *testing.T) {
 			},
 			wantMaxRetries: 3,
 			wantTimeout:    5 * time.Minute,
-			wantModel:      "gpt-4",
+			wantModel:      "gpt-4o",
 		},
 		{
 			name: "Anthropic with no defaults",

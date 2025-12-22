@@ -29,9 +29,9 @@ type LLMClient interface {
 
 // Config holds the configuration for LLM clients
 type Config struct {
-	Provider   string        // "openai" or "anthropic"
+	Provider   string        // "openai", "anthropic", or "gemini"
 	APIKey     string
-	Model      string        // "gpt-4" or "claude-3-opus-20240229"
+	Model      string        // "gpt-4o", "claude-sonnet-4-20250514", or "gemini-2.5-flash"
 	MaxRetries int
 	Timeout    time.Duration
 }
@@ -50,9 +50,11 @@ func NewLLMClient(cfg Config) (LLMClient, error) {
 	if cfg.Model == "" {
 		switch cfg.Provider {
 		case "openai":
-			cfg.Model = "gpt-4"
+			cfg.Model = "gpt-4o"
 		case "anthropic":
-			cfg.Model = "claude-3-opus-20240229"
+			cfg.Model = "claude-sonnet-4-20250514"
+		case "gemini":
+			cfg.Model = "gemini-2.5-flash"
 		default:
 			return nil, fmt.Errorf("unsupported provider: %s", cfg.Provider)
 		}
@@ -66,6 +68,11 @@ func NewLLMClient(cfg Config) (LLMClient, error) {
 		}, nil
 	case "anthropic":
 		return &anthropicClient{
+			config:     cfg,
+			httpClient: &http.Client{Timeout: cfg.Timeout},
+		}, nil
+	case "gemini":
+		return &geminiClient{
 			config:     cfg,
 			httpClient: &http.Client{Timeout: cfg.Timeout},
 		}, nil
@@ -344,6 +351,150 @@ func (c *anthropicClient) makeRequestWithURL(ctx context.Context, reqBody anthro
 
 	if response.Error != nil {
 		return nil, fmt.Errorf("Anthropic API error: %s", response.Error.Message)
+	}
+
+	return &response, nil
+}
+
+// geminiClient implements LLMClient for Google Gemini
+type geminiClient struct {
+	config     Config
+	httpClient *http.Client
+}
+
+type geminiRequest struct {
+	Contents []geminiContent `json:"contents"`
+}
+
+type geminiContent struct {
+	Parts []geminiPart `json:"parts"`
+}
+
+type geminiPart struct {
+	Text string `json:"text"`
+}
+
+type geminiResponse struct {
+	Candidates []struct {
+		Content struct {
+			Parts []geminiPart `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
+	Error *struct {
+		Message string `json:"message"`
+		Code    int    `json:"code"`
+	} `json:"error,omitempty"`
+}
+
+func (c *geminiClient) Complete(ctx context.Context, prompt string) (string, error) {
+	reqBody := geminiRequest{
+		Contents: []geminiContent{
+			{
+				Parts: []geminiPart{
+					{Text: prompt},
+				},
+			},
+		},
+	}
+
+	var lastErr error
+	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 2^attempt seconds
+			backoff := time.Duration(math.Pow(2, float64(attempt))) * time.Second
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+
+		response, err := c.makeRequest(ctx, reqBody)
+		if err != nil {
+			lastErr = err
+			// Retry on rate limit or timeout
+			if errors.Is(err, ErrRateLimited) || errors.Is(err, ErrTimeout) {
+				continue
+			}
+			return "", err
+		}
+
+		if len(response.Candidates) == 0 || len(response.Candidates[0].Content.Parts) == 0 {
+			return "", errors.New("no response from Gemini")
+		}
+
+		return response.Candidates[0].Content.Parts[0].Text, nil
+	}
+
+	return "", fmt.Errorf("max retries exceeded: %w", lastErr)
+}
+
+func (c *geminiClient) CompleteJSON(ctx context.Context, prompt string, result any) error {
+	response, err := c.Complete(ctx, prompt)
+	if err != nil {
+		return err
+	}
+
+	jsonContent, err := extractJSON(response)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal([]byte(jsonContent), result); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidJSON, err)
+	}
+
+	return nil
+}
+
+func (c *geminiClient) makeRequest(ctx context.Context, reqBody geminiRequest) (*geminiResponse, error) {
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", c.config.Model)
+	return c.makeRequestWithURL(ctx, reqBody, url)
+}
+
+func (c *geminiClient) makeRequestWithURL(ctx context.Context, reqBody geminiRequest, url string) (*geminiResponse, error) {
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", c.config.APIKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, ErrTimeout
+		}
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrRateLimited
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var response geminiResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if response.Error != nil {
+		return nil, fmt.Errorf("Gemini API error: %s", response.Error.Message)
 	}
 
 	return &response, nil

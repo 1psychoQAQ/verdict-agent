@@ -53,6 +53,11 @@ func main() {
 			Provider: "anthropic",
 			APIKey:   cfg.AnthropicAPIKey,
 		})
+	case "gemini":
+		llmClient, err = agent.NewLLMClient(agent.Config{
+			Provider: "gemini",
+			APIKey:   cfg.GeminiAPIKey,
+		})
 	}
 	if err != nil {
 		log.Fatalf("Failed to create LLM client: %v", err)
