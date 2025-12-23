@@ -1,7 +1,7 @@
 ---
 created: 2025-12-22T03:16:21Z
-last_updated: 2025-12-22T09:42:24Z
-version: 2.0
+last_updated: 2025-12-23T05:46:55Z
+version: 2.1
 author: Claude Code PM System
 ---
 
@@ -120,3 +120,5 @@ GOOGLE_SEARCH_KEY=      # For Google Custom Search
 - Rebuild required after static file changes
 - godotenv auto-loads `.env` file
 - Bilingual support (Chinese/English) in frontend
+- In-memory storage available for development/testing
+- Auth UI present, backend implementation ready for extension
