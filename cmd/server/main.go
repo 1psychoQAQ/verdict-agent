@@ -35,11 +35,27 @@ func main() {
 	defer cancel()
 
 	// Initialize storage
-	repo, err := storage.NewPostgresRepository(ctx, cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	var repo storage.Repository
+	var memRepo *storage.MemoryRepository
+
+	// Try PostgreSQL first, fall back to memory storage
+	if cfg.DatabaseURL != "" {
+		pgRepo, err := storage.NewPostgresRepository(ctx, cfg.DatabaseURL)
+		if err != nil {
+			log.Printf("Warning: Failed to connect to database: %v, using memory storage", err)
+			memRepo = storage.NewMemoryRepository()
+			repo = memRepo
+		} else {
+			repo = pgRepo
+			defer pgRepo.Close()
+			// Also create memory repo for auth/history features
+			memRepo = storage.NewMemoryRepository()
+		}
+	} else {
+		log.Println("No database URL configured, using memory storage")
+		memRepo = storage.NewMemoryRepository()
+		repo = memRepo
 	}
-	defer repo.Close()
 
 	// Initialize LLM client
 	var llmClient agent.LLMClient
@@ -103,6 +119,7 @@ func main() {
 		Pipeline:           p,
 		Generator:          generator,
 		Repository:         repo,
+		MemoryRepository:   memRepo,
 		ClarificationAgent: clarificationAgent,
 		RateLimit:          10,
 		Timeout:            10 * time.Minute,
@@ -111,6 +128,7 @@ func main() {
 		IndexHandler:       web.IndexHandler(),
 	}
 	log.Println("Clarification mode enabled")
+	log.Println("User accounts and history enabled")
 	router := api.NewRouter(routerCfg)
 
 	// Create HTTP server

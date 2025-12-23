@@ -11,10 +11,51 @@
         <!-- Header -->
         <header class="header">
             <h1 id="title">Verdict Agent</h1>
-            <button id="lang-toggle" class="lang-toggle" onclick="toggleLanguage()">
-                <span id="lang-text">中文</span>
-            </button>
+            <div class="header-actions">
+                <!-- Auth Section -->
+                <div id="auth-section" class="auth-section">
+                    <div id="auth-logged-out" class="auth-logged-out">
+                        <button class="auth-btn" onclick="showAuthModal('login')" id="login-btn-text">Login</button>
+                        <button class="auth-btn primary" onclick="showAuthModal('register')" id="register-btn-text">Register</button>
+                    </div>
+                    <div id="auth-logged-in" class="auth-logged-in hidden">
+                        <span id="user-display"></span>
+                        <button class="auth-btn" onclick="showHistory()" id="history-btn-text">History</button>
+                        <button class="auth-btn" onclick="logout()" id="logout-btn-text">Logout</button>
+                    </div>
+                </div>
+                <button id="lang-toggle" class="lang-toggle" onclick="toggleLanguage()">
+                    <span id="lang-text">中文</span>
+                </button>
+            </div>
         </header>
+
+        <!-- Auth Modal -->
+        <div id="auth-modal" class="modal hidden">
+            <div class="modal-content auth-modal-content">
+                <button class="modal-close" onclick="hideAuthModal()">&times;</button>
+                <h2 id="auth-modal-title">Login</h2>
+                <form id="auth-form" onsubmit="handleAuth(event)">
+                    <input type="text" id="auth-username" placeholder="Username" required minlength="2">
+                    <input type="password" id="auth-password" placeholder="Password" required minlength="4">
+                    <p id="auth-error" class="auth-error hidden"></p>
+                    <button type="submit" class="submit-btn" id="auth-submit-btn">Login</button>
+                </form>
+                <p class="auth-switch">
+                    <span id="auth-switch-text">Don't have an account?</span>
+                    <a href="#" onclick="switchAuthMode(event)" id="auth-switch-link">Register</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- History Modal -->
+        <div id="history-modal" class="modal hidden">
+            <div class="modal-content history-modal-content">
+                <button class="modal-close" onclick="hideHistoryModal()">&times;</button>
+                <h2 id="history-modal-title">Decision History</h2>
+                <div id="history-list" class="history-list"></div>
+            </div>
+        </div>
 
         <!-- Input Form -->
         <section class="input-section">
@@ -115,6 +156,18 @@
             <div class="todo-card">
                 <h2 id="todo-title">Execution Plan</h2>
                 <div id="todo-content" class="todo-content"></div>
+            </div>
+
+            <!-- Score Card (shown when logged in) -->
+            <div id="score-card" class="score-card hidden">
+                <h3 id="score-title">Progress</h3>
+                <div class="score-display">
+                    <div class="score-bar">
+                        <div id="score-fill" class="score-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="score-value">0%</span>
+                </div>
+                <p id="score-hint" class="score-hint">Check off completed criteria to track your progress</p>
             </div>
 
             <!-- Decision ID -->

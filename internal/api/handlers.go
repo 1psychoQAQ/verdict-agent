@@ -29,10 +29,12 @@ type ClarificationCtx struct {
 // VerdictResponse represents the response for POST /api/verdict
 type VerdictResponse struct {
 	// Status indicates the response type: "clarification_needed" or "verdict"
-	Status     string          `json:"status"`
-	DecisionID string          `json:"decision_id,omitempty"`
-	Decision   json.RawMessage `json:"decision,omitempty"`
-	Todo       string          `json:"todo,omitempty"` // Markdown content
+	Status       string          `json:"status"`
+	DecisionID   string          `json:"decision_id,omitempty"`
+	HistoryID    string          `json:"history_id,omitempty"` // User's history entry ID
+	Decision     json.RawMessage `json:"decision,omitempty"`
+	Todo         string          `json:"todo,omitempty"`         // Markdown content
+	DoneCriteria []string        `json:"done_criteria,omitempty"` // Done criteria list for tracking
 	// Clarification fields (when status is "clarification_needed")
 	Questions []QuestionDTO `json:"questions,omitempty"`
 	Reason    string        `json:"reason,omitempty"`
@@ -84,10 +86,11 @@ const (
 
 // Handlers holds the dependencies for HTTP handlers
 type Handlers struct {
-	pipeline            *pipeline.Pipeline
-	generator           *artifact.Generator
-	repository          storage.Repository
-	clarificationAgent  *agent.ClarificationAgent
+	pipeline           *pipeline.Pipeline
+	generator          *artifact.Generator
+	repository         storage.Repository
+	clarificationAgent *agent.ClarificationAgent
+	memoryRepo         *storage.MemoryRepository // For history tracking
 }
 
 // NewHandlers creates a new Handlers instance
@@ -237,13 +240,44 @@ func (h *Handlers) VerdictHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Save to user history if authenticated
+	var historyID string
+	if h.memoryRepo != nil {
+		user := GetUserFromContext(r)
+		if user != nil {
+			// Extract done criteria from execution result
+			doneCriteria := extractDoneCriteria(result.Execution)
+
+			history := &storage.UserHistory{
+				UserID:       user.ID,
+				DecisionID:   artifacts.ID,
+				Input:        result.Input,
+				Verdict:      artifacts.DecisionJSON,
+				Todo:         string(artifacts.TodoMD),
+				DoneCriteria: doneCriteria,
+				Score:        0, // Initial score is 0
+			}
+			if err := h.memoryRepo.CreateHistory(r.Context(), history); err == nil {
+				historyID = history.ID.String()
+			}
+		}
+	}
+
 	// Return response
-	writeJSON(w, http.StatusOK, VerdictResponse{
+	resp := VerdictResponse{
 		Status:     "verdict",
 		DecisionID: artifacts.ID.String(),
 		Decision:   artifacts.DecisionJSON,
 		Todo:       string(artifacts.TodoMD),
-	})
+	}
+	// Add done criteria from execution result
+	if result.Execution != nil && len(result.Execution.DoneCriteria) > 0 {
+		resp.DoneCriteria = result.Execution.DoneCriteria
+	}
+	if historyID != "" {
+		resp.HistoryID = historyID
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // buildEnrichedInput combines original input with clarification answers
@@ -314,4 +348,21 @@ func (h *Handlers) GetTodoHandler(w http.ResponseWriter, r *http.Request) {
 		Content:    todo.Content,
 		CreatedAt:  todo.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	})
+}
+
+// extractDoneCriteria extracts done criteria from execution output
+func extractDoneCriteria(execution *agent.ExecutionOutput) []storage.DoneCriterion {
+	if execution == nil || len(execution.DoneCriteria) == 0 {
+		return nil
+	}
+
+	criteria := make([]storage.DoneCriterion, len(execution.DoneCriteria))
+	for i, text := range execution.DoneCriteria {
+		criteria[i] = storage.DoneCriterion{
+			Index:     i,
+			Text:      text,
+			Completed: false,
+		}
+	}
+	return criteria
 }

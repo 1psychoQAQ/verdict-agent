@@ -64,6 +64,7 @@ CRITICAL RULES:
 5. Output ONLY valid JSON matching the schema - no explanations
 6. Never suggest alternatives to the ruling
 7. All done criteria must be measurable and verifiable
+8. IMPORTANT: Generate ALL content in the SAME LANGUAGE as the ruling. If the ruling is in Chinese, ALL output must be in Chinese. If the ruling is in English, ALL output must be in English.
 
 THE RULING (MUST ACCEPT):
 %s
@@ -72,6 +73,7 @@ RATIONALE:
 %s
 
 Your task: Create a MINIMAL execution plan that implements ONLY what the ruling specifies.
+REMEMBER: Use the SAME LANGUAGE as the ruling for all content (mvp_scope, phase names, tasks, done_criteria).
 
 Output JSON schema:
 {

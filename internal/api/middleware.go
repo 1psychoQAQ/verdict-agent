@@ -1,10 +1,68 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/1psychoQAQ/verdict-agent/internal/storage"
 )
+
+// Context key for user
+type contextKey string
+
+const userContextKey contextKey = "user"
+
+// AuthMiddleware creates authentication middleware
+func AuthMiddleware(repo *storage.MemoryRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := extractBearerToken(r)
+			if token == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			user, err := repo.GetUserBySession(r.Context(), token)
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), userContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// RequireAuth middleware requires authentication
+func RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := GetUserFromContext(r)
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", "")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// extractBearerToken extracts bearer token from Authorization header
+func extractBearerToken(r *http.Request) string {
+	auth := r.Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+	return ""
+}
+
+// GetUserFromContext gets user from request context
+func GetUserFromContext(r *http.Request) *storage.User {
+	user, _ := r.Context().Value(userContextKey).(*storage.User)
+	return user
+}
 
 // CORSConfig holds CORS configuration
 type CORSConfig struct {

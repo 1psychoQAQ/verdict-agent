@@ -17,6 +17,7 @@ type RouterConfig struct {
 	Pipeline           *pipeline.Pipeline
 	Generator          *artifact.Generator
 	Repository         storage.Repository
+	MemoryRepository   *storage.MemoryRepository // In-memory repo for auth/history
 	ClarificationAgent *agent.ClarificationAgent // Optional: enables clarification flow
 	RateLimit          int                       // Requests per minute per IP (default: 10)
 	Timeout            time.Duration             // Request timeout (default: 10 minutes)
@@ -54,6 +55,17 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		handlers = NewHandlers(cfg.Pipeline, cfg.Generator, cfg.Repository)
 	}
 
+	// Set memory repository for history tracking
+	if cfg.MemoryRepository != nil {
+		handlers.memoryRepo = cfg.MemoryRepository
+	}
+
+	// Create auth handlers if memory repo is available
+	var authHandlers *AuthHandlers
+	if cfg.MemoryRepository != nil {
+		authHandlers = NewAuthHandlers(cfg.MemoryRepository)
+	}
+
 	// Create rate limiter (10 requests per minute per IP)
 	rateLimiter := NewRateLimiter(cfg.RateLimit, time.Minute)
 
@@ -64,6 +76,11 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(cfg.Timeout))
 	r.Use(CORS(cfg.CORSConfig))
+
+	// Add auth middleware if memory repo is available
+	if cfg.MemoryRepository != nil {
+		r.Use(AuthMiddleware(cfg.MemoryRepository))
+	}
 
 	// Health check (not rate limited)
 	r.Get("/health", handlers.HealthHandler)
@@ -81,6 +98,24 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 
 		// GET /api/todos/{id} - Retrieve todo by ID
 		r.Get("/todos/{id}", handlers.GetTodoHandler)
+
+		// Auth routes (if auth handlers available)
+		if authHandlers != nil {
+			r.Route("/auth", func(r chi.Router) {
+				r.Post("/register", authHandlers.RegisterHandler)
+				r.Post("/login", authHandlers.LoginHandler)
+				r.Post("/logout", authHandlers.LogoutHandler)
+				r.Get("/me", authHandlers.MeHandler)
+			})
+
+			// History routes (require authentication)
+			r.Route("/history", func(r chi.Router) {
+				r.Use(RequireAuth)
+				r.Get("/", authHandlers.GetHistoryHandler)
+				r.Get("/{id}", authHandlers.GetHistoryByIDHandler)
+				r.Put("/{id}/criteria", authHandlers.UpdateDoneCriteriaHandler)
+			})
+		}
 	})
 
 	// Static files and frontend (if configured)
